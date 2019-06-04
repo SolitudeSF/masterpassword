@@ -2,6 +2,8 @@
 
 [Nim](https://nim-lang.org) implementation of [Master Password algorithm](https://masterpassword.app/masterpassword-algorithm.pdf)
 
+[mpwc](https://github.com/SolitudeSF/mpwc) is a command line password manager using this library.
+
 ## Installation
 
 `nimble install masterpassword`
