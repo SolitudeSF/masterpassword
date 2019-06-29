@@ -66,8 +66,7 @@ proc genMasterKey(pass, salt: string, n: uint64, r, p: uint32, l: uint): string 
 
 func bigEndStr(i: SomeNumber): string =
   result = newString 4
-  var i = i
-  bigEndian32 addr result[0], addr i
+  bigEndian32 addr result[0], unsafeAddr i
 
 proc getMasterKey*(pass, name: string, scope = scopePrefix): string =
   genMasterKey(pass, scope & name.len.bigEndStr & name, 32768, 8, 2, 64)
