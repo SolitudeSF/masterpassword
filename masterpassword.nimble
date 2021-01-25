@@ -9,4 +9,4 @@ srcDir        = "src"
 
 # Dependencies
 
-requires "nim >= 0.19.4", "hmac >= 0.1.7"
+requires "nim >= 1.0.0", "nimcrypto#a065c1741836462762d18d2fced1fedd46095b02"
