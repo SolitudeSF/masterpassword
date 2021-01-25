@@ -1,9 +1,13 @@
 import endians
 import nimcrypto/[scrypt, hmac]
 
-type Identicon* = object
-  leftArm*, body*, rightArm*, accessory*: string
-  color*: uint8
+type
+  MasterKey* = array[64, byte]
+  SiteKey* = array[32, byte]
+
+  Identicon* = object
+    leftArm*, body*, rightArm*, accessory*: string
+    color*: uint8
 
 const
   scopePrefix* = "com.lyndir.masterpassword"
@@ -35,32 +39,39 @@ const
 func `$`*(i: Identicon): string =
   i.leftArm & i.body & i.rightArm & i.accessory
 
-func genMasterKey(pass, salt: string, n, r, p, l: int): string =
-  result = newString(l)
-  let (xl, bl) = scryptCalc(n, r, p)
+func genMasterKey(pass, salt: openArray[char]): MasterKey =
+  const (xl, bl) = scryptCalc(32768, 8, 2)
   var
     xyv = newSeq[uint32](xl)
-    b = newSeq[byte](bl)
-  if scrypt(pass, salt, n, r, p, xyv, b, result.toOpenArrayByte(0, l - 1)) != l:
+    b: array[bl, byte]
+  if scrypt(pass, salt, 32768, 8, 2, xyv, b, result) != sizeof MasterKey:
     raise newException(CatchableError, "scrypt failed")
 
 func bigEndStr(i: SomeNumber): string =
   result = newString 4
   bigEndian32 addr result[0], unsafeAddr i
 
-func getMasterKey*(pass, name: string, scope = scopePrefix): string =
-  genMasterKey(pass, scope & name.len.bigEndStr & name, 32768, 8, 2, 64)
+func add(s: var string, a: openArray[char]) =
+  let start = s.len
+  s.setLen s.len + a.len
+  copyMem addr s[start], unsafeAddr a[0], a.len
 
-func getSiteKey*(pass, site: string, n = 1, scope = scopePrefix): string =
-  result = newString 32
-  let seed = scope & site.len.bigEndStr & site & n.bigEndStr
+func getMasterKey*(pass, name: openArray[char], scope = scopePrefix): MasterKey =
+  var salt = scope & name.len.bigEndStr
+  salt.add name
+  genMasterKey(pass, salt)
+
+func getSiteKey*(pass: openArray[byte], site: openArray[char], n = 1, scope = scopePrefix): SiteKey =
+  var seed = scope & site.len.bigEndStr
+  seed.add site
+  seed.add n.bigEndStr
   var data = hmac(sha256, pass, seed)
-  copyMem addr result[0], addr data.data[0], 32
+  copyMem addr result[0], addr data.data[0], sizeof SiteKey
 
 template select[T](s: openArray[T], n: char | SomeNumber): T =
   s[n.ord mod s.len]
 
-func getSitePass*(seed: string, templates: openArray[string]): string =
+func getSitePass*(seed: openArray[byte], templates: openArray[string]): string =
   let tmpl = templates.select seed[0]
   for i in 1..tmpl.len:
     result &= (
@@ -76,7 +87,7 @@ func getSitePass*(seed: string, templates: openArray[string]): string =
       else: "AEIOUaeiouBCDFGHJKLMNPQRSTVWXYZbcdfghjklmnpqrstvwxyz0123456789!@#$%^&*()".select seed[i]
       )
 
-func getIdenticon*(pass, name: string): Identicon =
+func getIdenticon*(pass, name: openArray[char]): Identicon =
   let seed = hmac(sha256, pass, name).data
   Identicon(
     leftArm: identiconLeftArms.select seed[0],
